@@ -118,7 +118,8 @@ class Options:
                 ['all', 'all-plugins', 'bits', 'bw', 'black-on-white', 'color',
                  'debug', 'filesystem', 'float', 'full', 'help', 'integer',
                  'list', 'mods', 'modules', 'nocolor', 'noheaders', 'noupdate',
-                 'output=', 'pidfile=', 'profile', 'version', 'vmstat'] + allplugins)
+                 'output=', 'pidfile=', 'profile', 'quiet', 'version', 'vmstat'
+                 ] + allplugins)
         except getopt.error, exc:
             print 'dstat: %s, try dstat -h for a list of all the options' % str(exc)
             sys.exit(1)
@@ -206,6 +207,8 @@ class Options:
                 self.pidfile = arg
             elif opt in ['--profile']:
                 self.profile = 'dstat_profile.log'
+            elif opt in ['--quiet']:
+                self.debug -= 1
             elif opt in ['-h', '--help']:
                 self.usage()
                 self.help()
@@ -238,7 +241,7 @@ class Options:
             print 'dstat: delay must be an integer, greater than zero'
             sys.exit(1)
 
-        if self.debug:
+        if self.debug > 0:
             print 'Plugins: %s' % self.plugins
 
     def version(self):
@@ -1029,7 +1032,7 @@ class dstat_epoch(dstat):
         self.name = 'epoch'
         self.vars = ('epoch',)
         self.width = 10
-        if op.debug:
+        if op.debug > 0:
             self.width = 13
         self.scale = 0
 
@@ -1633,7 +1636,7 @@ class dstat_time(dstat):
         self.name = 'system'
         self.timefmt = os.getenv('DSTAT_TIMEFMT') or '%d-%m %H:%M:%S'
         self.type = 's'
-        if op.debug:
+        if op.debug > 0:
             self.width = len(time.strftime(self.timefmt, time.localtime())) + 4
         else:
             self.width = len(time.strftime(self.timefmt, time.localtime()))
@@ -1642,7 +1645,7 @@ class dstat_time(dstat):
 
     ### We are now using the starttime for this plugin, not the execution time of this plugin
     def extract(self):
-        if op.debug:
+        if op.debug > 0:
             self.val['time'] = time.strftime(self.timefmt, time.localtime(starttime)) + ".%03d" % (round(starttime * 1000 % 1000 ))
         else:
             self.val['time'] = time.strftime(self.timefmt, time.localtime(starttime))
@@ -1939,7 +1942,7 @@ def greppipe(fileobj, str, tmout = 0.001):
             return ret
         else:
             ret = ''
-    if op.debug:
+    if op.debug > 0:
         raise Exception, 'Nothing found during greppipe data collection'
     return None
 
@@ -1957,7 +1960,7 @@ def matchpipe(fileobj, string, tmout = 0.001):
             return ret
         else:
             ret = ''
-    if op.debug:
+    if op.debug > 0:
         raise Exception, 'Nothing found during matchpipe data collection'
     return None
 
@@ -2667,7 +2670,7 @@ def main():
             except Exception, e:
                 if mod == mods[-1]:
                     print >>sys.stderr, 'Module %s failed to load. (%s)' % (pluginfile, e)
-                elif op.debug:
+                elif op.debug > 0:
                     print >>sys.stderr, 'Module %s failed to load, trying another. (%s)' % (pluginfile, e)
                 if op.debug >= 3:
                     raise
@@ -2679,7 +2682,7 @@ def main():
             linewidth = linewidth + o.statwidth() + 1
             totlist.append(o)
 
-            if op.debug:
+            if op.debug > 0:
                 print 'Module', pluginfile,
                 if hasattr(o, 'file'):
                     print 'requires', o.file,
@@ -2811,7 +2814,7 @@ def perform(update):
 #            outputfile.flush()
 
         ### Print debugging output
-        if op.debug:
+        if op.debug > 0:
             totaltime = totaltime + (time.time() - starttime) * 1000.0
             if loop == 0:
                 totaltime = totaltime * step
@@ -2822,10 +2825,11 @@ def perform(update):
             elif op.debug > 2:
                 sys.stdout.write('%s%6.2f %s%d:%d:%d%s' % (theme['roundtrip'], totaltime / step, theme['debug'], loop, step, update, theme['input']))
 
-        if missed > 0:
+        if op.debug > -1: # not quiet
+            if missed > 0:
 #            sys.stdout.write(' '+theme['error']+'= warn =')
-            sys.stdout.write(' ' + theme['error'] + 'missed ' + str(missed+1) + ' ticks' + theme['input'])
-            missed = 0
+                sys.stdout.write(' ' + theme['error'] + 'missed ' + str(missed+1) + ' ticks' + theme['input'])
+                missed = 0
 
         ### Finish the line
         if not op.update:
